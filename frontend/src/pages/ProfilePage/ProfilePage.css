@@ -1,0 +1,13 @@
+.profile-page {
+  display: flex;
+  justify-content: center;
+  padding-top: 16px;
+}
+
+.profile-card {
+  background: var(--color-surface);
+  padding: 18px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-soft);
+  min-width: 280px;
+}

@@ -1,0 +1,13 @@
+{
+  "model": "RandomForestRegressor",
+  "mae": 4.6,
+  "features": [
+    "lat",
+    "lng",
+    "hour",
+    "day_of_week",
+    "crime_frequency",
+    "harassment_ratio",
+    "night_flag"
+  ]
+}
