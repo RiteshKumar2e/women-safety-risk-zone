@@ -369,7 +369,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📧 Contact
 
-**Project Link**: [[https://github.com/yourusername/saferoute](https://github.com/yourusername/saferoute)](https://github.com/RiteshKumar2e/women-safety-risk-zone)
+**Project Link**: [(https://github.com/RiteshKumar2e/women-safety-risk-zone)]
 
 **Email**: riteshkumar90359@gmail.com
 
