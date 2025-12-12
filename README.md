@@ -1317,5 +1317,6 @@ Dev Community Awards
 
 ### 👀 Visitor Count
 
-![Visitor Count](https://profile-counter.glitch.me/RiteshKumar2e-women-safety-risk-zone/count.svg)
+![Visitor Count](https://profile-counter.glitch.me/RiteshKumar2e/women-safety-risk-zone/count.svg)
+
 
