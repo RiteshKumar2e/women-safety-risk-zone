@@ -1,8 +1,15 @@
-import React, { useState, useMemo } from 'react';
-import { MapContainer, TileLayer, CircleMarker, Tooltip, Circle } from 'react-leaflet';
-import './CityMap.css';
+import React, { useState, useMemo, useEffect } from 'react';
+import { MapContainer, TileLayer, CircleMarker, Tooltip, Circle, Polyline, Marker, useMapEvents } from 'react-leaflet';
+import L from 'leaflet';
 
-// Helper functions
+/* ---------------- WOMAN ICON ---------------- */
+const womanIcon = new L.Icon({
+  iconUrl: "https://cdn-icons-png.flaticon.com/512/6997/6997662.png",
+  iconSize: [42, 42],
+  iconAnchor: [21, 42],
+});
+
+/* ---------------- HELPER FUNCTIONS ---------------- */
 function getColor(level) {
   switch (level) {
     case 'HIGH': return '#dc2626';
@@ -57,7 +64,7 @@ function getSafetyRecommendations(riskLevel) {
 
 function generateZonesForCity(cityCenter, cityName, cityId) {
   const zones = [];
-  const gridSize =7;
+  const gridSize = 7;
   const spread = 0.025;
   
   for (let i = 0; i < gridSize; i++) {
@@ -82,7 +89,7 @@ function generateZonesForCity(cityCenter, cityName, cityId) {
   return zones;
 }
 
-// All Indian Cities Database
+/* ---------------- ALL CITIES DATA ---------------- */
 export const ALL_CITIES = [
   // Andhra Pradesh
   { key: 'VISAKHAPATNAM', name: 'Visakhapatnam', state: 'Andhra Pradesh', center: { lat: 17.6869, lng: 83.2185 } },
@@ -266,8 +273,6 @@ export const ALL_CITIES = [
   // Dadra & Nagar Haveli and Daman & Diu (UT)
   { key: 'DAMAN', name: 'Daman', state: 'Dadra & Nagar Haveli and Daman & Diu', center: { lat: 20.3974, lng: 72.8328 } }
 ];
-
-
 const CITY_CONFIG = {};
 ALL_CITIES.forEach(city => {
   CITY_CONFIG[city.key] = {
@@ -276,9 +281,19 @@ ALL_CITIES.forEach(city => {
   };
 });
 
-// Group cities by state
 const STATES = [...new Set(ALL_CITIES.map(c => c.state))].sort();
 
+/* ---------------- MAP CLICK HANDLER ---------------- */
+function ClickHandler({ onSelect }) {
+  useMapEvents({
+    click(e) {
+      onSelect(e.latlng);
+    },
+  });
+  return null;
+}
+
+/* ---------------- ZONE POPUP ---------------- */
 function ZonePopup({ zone, onClose }) {
   if (!zone) return null;
   const colors = getColorByLevel(zone.riskLevel);
@@ -333,6 +348,7 @@ function ZonePopup({ zone, onClose }) {
   );
 }
 
+/* ---------------- RISK HEATMAP LAYER ---------------- */
 function RiskHeatmapLayer({ zones = [], onZoneClick }) {
   return (
     <>
@@ -360,10 +376,19 @@ function RiskHeatmapLayer({ zones = [], onZoneClick }) {
   );
 }
 
+/* ---------------- MAIN COMPONENT ---------------- */
 function CityMap() {
   const [selectedZone, setSelectedZone] = useState(null);
   const [selectedCityKey, setSelectedCityKey] = useState('PATNA');
   const [selectedState, setSelectedState] = useState('Bihar');
+  
+  // Route planning states
+  const [source, setSource] = useState(null);
+  const [destination, setDestination] = useState(null);
+  const [route, setRoute] = useState([]);
+  const [womanPos, setWomanPos] = useState(null);
+  const [moving, setMoving] = useState(false);
+  const [whatsappSent, setWhatsappSent] = useState(false); // Track if WhatsApp alert sent
 
   const currentCity = CITY_CONFIG[selectedCityKey];
   const zones = currentCity.zones;
@@ -376,8 +401,242 @@ function CityMap() {
     return { high, medium, low, total: zones.length };
   }, [zones]);
 
+  /* ---------------- SAFE ROUTE GENERATION ---------------- */
+  function generateSafeRoute() {
+    if (!source || !destination) return;
+
+    // Check if direct route passes through high/medium risk zones
+    const directSteps = 80;
+    const directRoute = [];
+    
+    for (let i = 0; i <= directSteps; i++) {
+      const lat = source.lat + (destination.lat - source.lat) * (i / directSteps);
+      const lng = source.lng + (destination.lng - source.lng) * (i / directSteps);
+      directRoute.push({ lat, lng });
+    }
+
+    // Check for dangerous zones in direct path
+    let hasDanger = false;
+    for (const point of directRoute) {
+      const danger = zones.find(z => {
+        const d = Math.hypot(point.lat - z.center.lat, point.lng - z.center.lng);
+        return d < 0.003 && (z.riskLevel === "HIGH" || z.riskLevel === "MEDIUM");
+      });
+      if (danger) {
+        hasDanger = true;
+        break;
+      }
+    }
+
+    if (!hasDanger) {
+      // Direct route is safe
+      setRoute(directRoute);
+      setWomanPos(directRoute[0]);
+      return;
+    }
+
+    // Generate safer alternative route by detouring around danger zones
+    const safeRoute = [];
+    const midLat = (source.lat + destination.lat) / 2;
+    const midLng = (source.lng + destination.lng) / 2;
+    
+    // Find safest detour point (perpendicular to direct line)
+    const perpOffsetLat = (destination.lng - source.lng) * 0.015;
+    const perpOffsetLng = -(destination.lat - source.lat) * 0.015;
+    
+    const detour1 = { lat: midLat + perpOffsetLat, lng: midLng + perpOffsetLng };
+    const detour2 = { lat: midLat - perpOffsetLat, lng: midLng - perpOffsetLng };
+    
+    // Choose detour with lower risk
+    const checkDetourRisk = (detour) => {
+      let riskSum = 0;
+      zones.forEach(z => {
+        const d = Math.hypot(detour.lat - z.center.lat, detour.lng - z.center.lng);
+        if (d < 0.005) {
+          riskSum += z.riskScore;
+        }
+      });
+      return riskSum;
+    };
+    
+    const detour = checkDetourRisk(detour1) < checkDetourRisk(detour2) ? detour1 : detour2;
+    
+    // Build route: source -> detour -> destination
+    const segmentSteps = 40;
+    
+    // Segment 1: source to detour
+    for (let i = 0; i <= segmentSteps; i++) {
+      const lat = source.lat + (detour.lat - source.lat) * (i / segmentSteps);
+      const lng = source.lng + (detour.lng - source.lng) * (i / segmentSteps);
+      safeRoute.push({ lat, lng });
+    }
+    
+    // Segment 2: detour to destination
+    for (let i = 1; i <= segmentSteps; i++) {
+      const lat = detour.lat + (destination.lat - detour.lat) * (i / segmentSteps);
+      const lng = detour.lng + (destination.lng - detour.lng) * (i / segmentSteps);
+      safeRoute.push({ lat, lng });
+    }
+
+    setRoute(safeRoute);
+    setWomanPos(safeRoute[0]);
+  }
+
+  /* ---------------- MOVEMENT + ALERTS + DYNAMIC REROUTING ---------------- */
+  useEffect(() => {
+    if (!moving || route.length === 0) return;
+
+    let idx = 0;
+    const alertedZones = new Set();
+    
+    const timer = setInterval(() => {
+      if (idx >= route.length) {
+        setMoving(false);
+        clearInterval(timer);
+        return;
+      }
+
+      const point = route[idx];
+      setWomanPos(point);
+
+      // Check for danger within detection radius
+      const danger = zones.find(z => {
+        const d = Math.hypot(
+          point.lat - z.center.lat,
+          point.lng - z.center.lng
+        );
+        return d < 0.005 && (z.riskLevel === "HIGH" || z.riskLevel === "MEDIUM");
+      });
+
+      if (danger && !alertedZones.has(danger.id) && !whatsappSent) {
+        alertedZones.add(danger.id);
+        
+        // PAUSE MOVEMENT temporarily
+        setMoving(false);
+        clearInterval(timer);
+        
+        // First Alert - Danger Warning
+        alert(
+          `⚠️ DANGER DETECTED!\n\n` +
+          `${danger.riskLevel} Risk Zone: ${danger.id}\n` +
+          `Score: ${danger.riskScore}/100\n\n` +
+          `🚨 YE AREA SAFE NAHI HAI!\n\n` +
+          `Emergency alert will be sent...`
+        );
+        
+        // Send WhatsApp alert and mark as sent
+        setWhatsappSent(true);
+        
+        const emergencyNumber = "916206269895";
+        const message = encodeURIComponent(
+          `🚨 EMERGENCY ALERT 🚨\n\n` +
+          `${danger.riskLevel} RISK ZONE DETECTED!\n\n` +
+          `⚠️ YE AREA SAFE NAHI HAI!\n\n` +
+          `Zone: ${danger.id}\n` +
+          `Risk Score: ${danger.riskScore}/100\n` +
+          `Location: ${point.lat.toFixed(4)}°N, ${point.lng.toFixed(4)}°E\n` +
+          `City: ${currentCity.name}\n\n` +
+          `User is being rerouted to safer path.\n` +
+          `⚠️ Please check immediately!`
+        );
+        
+        window.open(`https://wa.me/${emergencyNumber}?text=${message}`, '_blank');
+        
+        // Small delay for WhatsApp to open
+        setTimeout(() => {
+          // Second Alert - Safe Route Generated
+          alert(
+            `✅ SAFE ROUTE GENERATED!\n\n` +
+            `✓ Emergency alert sent to 6206269895\n` +
+            `✓ Dangerous zone avoided\n` +
+            `✓ Safer path calculated\n\n` +
+            `Journey will now continue on safe route with faster speed.\n\n` +
+            `No more alerts will be shown.`
+          );
+          
+          // GENERATE NEW SAFE ROUTE and AUTO-CONTINUE with FASTER SPEED
+          const remainingRoute = generateDynamicSafeRoute(point, destination, danger);
+          
+          if (remainingRoute.length > 0) {
+            setRoute(remainingRoute);
+            setWomanPos(remainingRoute[0]);
+            
+            // AUTO-RESUME with faster movement after short delay
+            setTimeout(() => {
+              setMoving(true);
+            }, 500);
+          }
+        }, 800);
+        
+        return;
+      }
+
+      idx++;
+    }, whatsappSent ? 200 : 300); // Faster speed after first alert
+
+    return () => clearInterval(timer);
+  }, [moving, route, zones, currentCity.name, destination, whatsappSent]);
+
+  /* ---------------- DYNAMIC SAFE ROUTE FROM CURRENT POSITION ---------------- */
+  function generateDynamicSafeRoute(currentPos, dest, dangerZone) {
+    const safeRoute = [];
+    
+    // Calculate detour away from danger zone
+    const dangerLat = dangerZone.center.lat;
+    const dangerLng = dangerZone.center.lng;
+    
+    // Vector from danger to current position
+    const awayLat = currentPos.lat - dangerLat;
+    const awayLng = currentPos.lng - dangerLng;
+    
+    // Normalize and extend
+    const magnitude = Math.sqrt(awayLat * awayLat + awayLng * awayLng);
+    const normalizedLat = awayLat / magnitude;
+    const normalizedLng = awayLng / magnitude;
+    
+    // Create waypoint away from danger
+    const safeWaypoint = {
+      lat: dangerLat + normalizedLat * 0.02,
+      lng: dangerLng + normalizedLng * 0.02
+    };
+    
+    // Check if waypoint itself is safe
+    const waypointDanger = zones.find(z => {
+      const d = Math.hypot(safeWaypoint.lat - z.center.lat, safeWaypoint.lng - z.center.lng);
+      return d < 0.005 && (z.riskLevel === "HIGH" || z.riskLevel === "MEDIUM");
+    });
+    
+    // If waypoint is also dangerous, create perpendicular detour
+    let finalWaypoint = safeWaypoint;
+    if (waypointDanger) {
+      finalWaypoint = {
+        lat: currentPos.lat + (dest.lng - currentPos.lng) * 0.01,
+        lng: currentPos.lng - (dest.lat - currentPos.lat) * 0.01
+      };
+    }
+    
+    const steps = 40;
+    
+    // Segment 1: current position to safe waypoint
+    for (let i = 0; i <= steps; i++) {
+      const lat = currentPos.lat + (finalWaypoint.lat - currentPos.lat) * (i / steps);
+      const lng = currentPos.lng + (finalWaypoint.lng - currentPos.lng) * (i / steps);
+      safeRoute.push({ lat, lng });
+    }
+    
+    // Segment 2: safe waypoint to destination
+    for (let i = 1; i <= steps; i++) {
+      const lat = finalWaypoint.lat + (dest.lat - finalWaypoint.lat) * (i / steps);
+      const lng = finalWaypoint.lng + (dest.lng - finalWaypoint.lng) * (i / steps);
+      safeRoute.push({ lat, lng });
+    }
+    
+    return safeRoute;
+  }
+
   return (
     <div style={{ position: 'relative', width: '100%', height: '800px' }}>
+      {/* Top Bar */}
       <div style={{ position: 'absolute', zIndex: 1000, top: 10, left: 12, right: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', pointerEvents: 'none', flexWrap: 'wrap', gap: '8px' }}>
         <div style={{ pointerEvents: 'auto', background: 'rgba(15,23,42,0.9)', color: 'white', padding: '8px 12px', borderRadius: 10, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
           <span style={{ fontWeight: 600 }}>🗺️ Women Safety Risk Map</span>
@@ -393,7 +652,7 @@ function CityMap() {
             ))}
           </select>
           
-          <select value={selectedCityKey} onChange={(e) => { setSelectedCityKey(e.target.value); setSelectedZone(null); }} style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: '0.8rem', background: 'white', cursor: 'pointer', fontWeight: 500 }}>
+          <select value={selectedCityKey} onChange={(e) => { setSelectedCityKey(e.target.value); setSelectedZone(null); setSource(null); setDestination(null); setRoute([]); setWomanPos(null); setMoving(false); setWhatsappSent(false); }} style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: '0.8rem', background: 'white', cursor: 'pointer', fontWeight: 500 }}>
             {citiesInState.map(city => (
               <option key={city.key} value={city.key}>🏙️ {city.name}</option>
             ))}
@@ -408,11 +667,49 @@ function CityMap() {
         </div>
       </div>
 
+      {/* Map */}
       <MapContainer key={selectedCityKey} center={[currentCity.center.lat, currentCity.center.lng]} zoom={12} scrollWheelZoom={true} style={{ width: '100%', height: '100%' }}>
         <TileLayer attribution="&copy; OpenStreetMap contributors" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        
+        <ClickHandler
+          onSelect={(latlng) => {
+            if (!source) setSource(latlng);
+            else if (!destination) setDestination(latlng);
+          }}
+        />
+        
         <RiskHeatmapLayer zones={zones} onZoneClick={setSelectedZone} />
+        
+        {/* Source & Destination Markers */}
+        {source && (
+          <CircleMarker 
+            center={[source.lat, source.lng]} 
+            radius={8}
+            pathOptions={{ color: '#10b981', fillColor: '#10b981', fillOpacity: 1, weight: 3 }}
+          >
+            <Tooltip permanent>🟢 Start</Tooltip>
+          </CircleMarker>
+        )}
+        {destination && (
+          <CircleMarker 
+            center={[destination.lat, destination.lng]} 
+            radius={8}
+            pathOptions={{ color: '#ef4444', fillColor: '#ef4444', fillOpacity: 1, weight: 3 }}
+          >
+            <Tooltip permanent>🔴 End</Tooltip>
+          </CircleMarker>
+        )}
+        
+        {/* Route Line */}
+        {route.length > 1 && (
+          <Polyline positions={route.map(p => [p.lat, p.lng])} color="#2563eb" weight={4} opacity={0.7} dashArray="10, 5" />
+        )}
+        
+        {/* Moving Woman Marker */}
+        {womanPos && <Marker position={[womanPos.lat, womanPos.lng]} icon={womanIcon} />}
       </MapContainer>
 
+      {/* Risk Legend */}
       <div style={{ position: 'absolute', left: 10, bottom: 10, zIndex: 1000, background: 'rgba(255,255,255,0.95)', borderRadius: 8, padding: '8px 10px', fontSize: '0.7rem', boxShadow: '0 2px 6px rgba(0,0,0,0.15)' }}>
         <div style={{ fontWeight: 600, marginBottom: 6, fontSize: '0.75rem' }}>Risk Legend</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -422,18 +719,67 @@ function CityMap() {
         </div>
       </div>
 
+      {/* Zone Popup */}
       {selectedZone && <ZonePopup zone={selectedZone} onClose={() => setSelectedZone(null)} />}
+
+      {/* Route Controls */}
+      <div style={{ position: 'absolute', right: 10, bottom: 10, zIndex: 1000, background: 'rgba(255,255,255,0.95)', borderRadius: 8, padding: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', gap: 8, minWidth: '180px' }}>
+        <div style={{ fontSize: '0.75rem', fontWeight: 600, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span>🗺️</span> Safe Route Planning
+        </div>
+        <button 
+          onClick={generateSafeRoute} 
+          disabled={!source || !destination}
+          style={{ padding: '8px 12px', borderRadius: 6, border: 'none', background: (!source || !destination) ? '#d1d5db' : '#10b981', color: 'white', fontSize: '0.75rem', fontWeight: 600, cursor: (!source || !destination) ? 'not-allowed' : 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+        >
+          <span>🛡️</span> Generate Safe Route
+        </button>
+        <button 
+          onClick={() => setMoving(true)} 
+          disabled={!route.length || moving}
+          style={{ padding: '8px 12px', borderRadius: 6, border: 'none', background: (!route.length || moving) ? '#d1d5db' : '#10b981', color: 'white', fontSize: '0.75rem', fontWeight: 600, cursor: (!route.length || moving) ? 'not-allowed' : 'pointer', transition: 'all 0.2s' }}
+        >
+          {moving ? '🚶‍♀️ Traveling...' : 'Start Journey'}
+        </button>
+        <button 
+          onClick={() => {
+            setSource(null);
+            setDestination(null);
+            setRoute([]);
+            setWomanPos(null);
+            setMoving(false);
+            setWhatsappSent(false);
+          }}
+          style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #d1d5db', background: 'white', color: '#374151', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}
+        >
+          🔄 Reset Route
+        </button>
+        {!source && !destination && (
+          <div style={{ fontSize: '0.68rem', color: '#6b7280', marginTop: 4, lineHeight: '1.3', padding: '6px', background: '#f9fafb', borderRadius: 4 }}>
+            💡 Click on map to set start and end points. Route will automatically avoid high-risk zones and continue journey.
+          </div>
+        )}
+        {source && !destination && (
+          <div style={{ fontSize: '0.68rem', color: '#059669', marginTop: 4, lineHeight: '1.3', padding: '6px', background: '#d1fae5', borderRadius: 4 }}>
+            ✓ Start set. Click for end point.
+          </div>
+        )}
+        {route.length > 0 && !moving && (
+          <div style={{ fontSize: '0.68rem', color: '#059669', marginTop: 4, lineHeight: '1.3', padding: '6px', background: '#d1fae5', borderRadius: 4, borderLeft: '3px solid #059669' }}>
+            ✅ Safe route ready. Click "Start Journey" to begin.
+            {whatsappSent && <div style={{ marginTop: 4, color: '#047857' }}>📱 Emergency alert sent</div>}
+          </div>
+        )}
+        {moving && (
+          <div style={{ fontSize: '0.68rem', color: '#0284c7', marginTop: 4, lineHeight: '1.3', padding: '6px', background: '#e0f2fe', borderRadius: 4, borderLeft: '3px solid #0284c7' }}>
+            🛡️ Journey active. Auto-rerouting enabled. Fast mode after danger detection.
+          </div>
+        )}
+      </div>
 
       <style>{`
         .leaflet-container {
           font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-        }
-        .leaflet-tooltip.my-tooltip {
-          background: rgba(255, 255, 255, 0.9);
-          border: 1px solid #d1d5db;
-          border-radius: 6px;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-          padding: 6px 8px;
         }
       `}</style>
     </div>
