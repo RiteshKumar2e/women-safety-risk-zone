@@ -359,6 +359,7 @@ npm run dev
 # Build for production
 npm run build
 ```
+ML SERVICE : uvicorn src.predict:app --reload --port 8001
 
 **Environment Variables (`.env`)**
 ```env
