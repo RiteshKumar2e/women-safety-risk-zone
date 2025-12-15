@@ -531,7 +531,7 @@ function CityMap() {
         const message = encodeURIComponent(
           `🚨 EMERGENCY ALERT 🚨\n\n` +
           `${danger.riskLevel} RISK ZONE DETECTED!\n\n` +
-          `⚠️ YE AREA SAFE NAHI HAI!\n\n` +
+          `⚠️ THIS AREA IS NOT SAFE!\n\n` +
           `Zone: ${danger.id}\n` +
           `Risk Score: ${danger.riskScore}/100\n` +
           `Location: ${point.lat.toFixed(4)}°N, ${point.lng.toFixed(4)}°E\n` +
