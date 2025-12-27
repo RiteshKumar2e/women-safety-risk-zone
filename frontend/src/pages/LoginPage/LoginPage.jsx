@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import apiClient from '../../services/apiClient';
 import './LoginPage.css';
+
+const GOOGLE_CLIENT_ID = "951248037202-st6tgbo07tjljditc95n7kuvgqr7a7mg.apps.googleusercontent.com";
 
 function LoginPage() {
   const { login } = useAuth();
@@ -29,95 +31,86 @@ function LoginPage() {
     }
   };
 
-  const handleGoogleLogin = async () => {
+  const handleGoogleLogin = () => {
     setGoogleLoading(true);
-    try {
-      // TODO: Implement real Google OAuth URL (backend integration needed)
-      setTimeout(() => {
-        setGoogleLoading(false);
-        setError('Google login integration pending (backend OAuth needed).');
-      }, 800);
-    } catch (err) {
-      setGoogleLoading(false);
-      setError('Google login failed, please try normal login.');
-    }
+    // Redirect to Google OAuth
+    const redirectUri = window.location.origin + '/auth/google/callback';
+    const googleUrl = `https://accounts.google.com/o/oauth2/v2/auth?response_type=code&client_id=${GOOGLE_CLIENT_ID}&redirect_uri=${translateRedirect(redirectUri)}&scope=openid%20profile%20email`;
+
+    window.location.href = googleUrl;
   };
 
+  // Helper to ensure redirect URI is handled correctly (simple version)
+  const translateRedirect = (uri) => encodeURIComponent(uri);
+
   return (
-    <div className="auth-page auth-page--login">
-      <div className="auth-card">
-        <div className="auth-header">
-          <h2 className="auth-title">Welcome Back</h2>
-          <p className="auth-subtitle">Login to your account</p>
+    <div className="auth-page">
+      <div className="auth-container">
+        <div className="auth-logo" onClick={() => navigate('/')}>
+          🛡️ SafeZone AI
         </div>
 
-        {/* Google login section */}
-        <div className="auth-oauth">
-          <button
-            type="button"
-            className="auth-google-btn"
-            onClick={handleGoogleLogin}
-            disabled={googleLoading || loading}
-          >
-            <span className="auth-google-icon">G</span>
-            <span>
-              {googleLoading ? 'Connecting to Google…' : 'Continue with Google'}
-            </span>
-          </button>
-          <div className="auth-divider">
-            <span className="auth-divider-line" />
-            <span className="auth-divider-text">or use email</span>
-            <span className="auth-divider-line" />
-          </div>
-        </div>
-
-        {error && <div className="auth-error-box">{error}</div>}
-
-        <form onSubmit={handleSubmit} className="auth-form">
-          <div className="auth-field">
-            <label className="auth-label">Email</label>
-            <input
-              type="email"
-              value={email}
-              required
-              onChange={(e) => setEmail(e.target.value)}
-              className="auth-input"
-              placeholder="your@email.com"
-            />
+        <div className="auth-card-saas">
+          <div className="auth-header-saas">
+            <h1>Sign in to SafeZone</h1>
+            <p>Enter your details to access safety analytics</p>
           </div>
 
-          <div className="auth-field">
-            <label className="auth-label">Password</label>
-            <input
-              type="password"
-              value={password}
-              required
-              onChange={(e) => setPassword(e.target.value)}
-              className="auth-input"
-              placeholder="••••••••"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading || googleLoading}
-            className="auth-button auth-button--primary"
-          >
-            {loading ? 'Logging in...' : 'Login'}
-          </button>
-        </form>
-
-        <div className="auth-footer-text">
-          <p>
-            Don&apos;t have an account?{' '}
+          <div className="google-auth-section">
             <button
-              type="button"
-              onClick={() => navigate('/register')}
-              className="auth-link-button"
+              className="google-btn-saas"
+              onClick={handleGoogleLogin}
+              disabled={googleLoading || loading}
             >
-              Register here
+              <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" />
+              <span>Continue with Google</span>
             </button>
-          </p>
+          </div>
+
+          <div className="auth-divider-saas">
+            <span>OR CONTINUE WITH EMAIL</span>
+          </div>
+
+          {error && <div className="auth-error-saas">{error}</div>}
+
+          <form onSubmit={handleSubmit} className="auth-form-saas">
+            <div className="form-group">
+              <label>Work Email</label>
+              <input
+                type="email"
+                placeholder="name@company.com"
+                value={email}
+                required
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+
+            <div className="form-group">
+              <div className="label-row">
+                <label>Password</label>
+                <Link to="/forgot-password">Forgot password?</Link>
+              </div>
+              <input
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                required
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+
+            <button type="submit" className="btn-auth-submit" disabled={loading}>
+              {loading ? 'Signing in...' : 'Sign In'}
+            </button>
+          </form>
+
+          <div className="auth-footer-saas">
+            Don't have an account? <Link to="/register">Create one for free</Link>
+          </div>
+        </div>
+
+        <div className="auth-legal">
+          By continuing, you agree to SafeZone's <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.
         </div>
       </div>
     </div>

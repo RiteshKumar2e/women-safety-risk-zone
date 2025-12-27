@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import apiClient from '../../services/apiClient';
+import '../LoginPage/LoginPage.css'; // Reusing styles for consistency
 import './RegisterPage.css';
+
+const GOOGLE_CLIENT_ID = "951248037202-st6tgbo07tjljditc95n7kuvgqr7a7mg.apps.googleusercontent.com";
 
 function RegisterPage() {
   const { login } = useAuth();
@@ -25,150 +28,112 @@ function RegisterPage() {
       return;
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
-      return;
-    }
-
     setLoading(true);
     try {
-      const res = await apiClient.post('/auth/register', {
-        name,
-        email,
-        password,
-      });
-
-      // Auto-login after registration
+      const res = await apiClient.post('/auth/register', { name, email, password });
       login(res.data);
       navigate('/map');
-
-      // Alternative: redirect to login page
-      // navigate('/login');
     } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          'Registration failed. Please try again.'
-      );
+      setError(err.response?.data?.message || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGoogleSignup = async () => {
+  const handleGoogleSignup = () => {
     setGoogleLoading(true);
-    try {
-      // TODO: Implement real Google OAuth integration
-      setTimeout(() => {
-        setGoogleLoading(false);
-        setError('Google signup/login integration pending (backend OAuth).');
-      }, 800);
-    } catch (err) {
-      setGoogleLoading(false);
-      setError('Google signup failed, please use email.');
-    }
+    const redirectUri = window.location.origin + '/auth/google/callback';
+    const googleUrl = `https://accounts.google.com/o/oauth2/v2/auth?status=signup&response_type=code&client_id=${GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=openid%20profile%20email`;
+    window.location.href = googleUrl;
   };
 
   return (
-    <div className="auth-page auth-page--register">
-      <div className="auth-card">
-        <div className="auth-header">
-          <h2 className="auth-title">Create Account</h2>
-          <p className="auth-subtitle">Sign up to get started</p>
+    <div className="auth-page">
+      <div className="auth-container">
+        <div className="auth-logo" onClick={() => navigate('/')}>
+          🛡️ SafeZone AI
         </div>
 
-        {/* Google signup section */}
-        <div className="auth-oauth">
-          <button
-            type="button"
-            className="auth-google-btn"
-            onClick={handleGoogleSignup}
-            disabled={googleLoading || loading}
-          >
-            <span className="auth-google-icon">G</span>
-            <span>
-              {googleLoading
-                ? 'Connecting to Google…'
-                : 'Sign up with Google'}
-            </span>
-          </button>
-          <div className="auth-divider">
-            <span className="auth-divider-line" />
-            <span className="auth-divider-text">or use email</span>
-            <span className="auth-divider-line" />
-          </div>
-        </div>
-
-        {error && <div className="auth-error-box">{error}</div>}
-
-        <form onSubmit={handleSubmit} className="auth-form">
-          <div className="auth-field">
-            <label className="auth-label">Full Name</label>
-            <input
-              type="text"
-              value={name}
-              required
-              onChange={(e) => setName(e.target.value)}
-              className="auth-input"
-              placeholder="John Doe"
-            />
+        <div className="auth-card-saas">
+          <div className="auth-header-saas">
+            <h1>Create your account</h1>
+            <p>Start your 14-day professional trial today</p>
           </div>
 
-          <div className="auth-field">
-            <label className="auth-label">Email</label>
-            <input
-              type="email"
-              value={email}
-              required
-              onChange={(e) => setEmail(e.target.value)}
-              className="auth-input"
-              placeholder="your@email.com"
-            />
-          </div>
-
-          <div className="auth-field">
-            <label className="auth-label">Password</label>
-            <input
-              type="password"
-              value={password}
-              required
-              onChange={(e) => setPassword(e.target.value)}
-              className="auth-input"
-              placeholder="••••••••"
-            />
-          </div>
-
-          <div className="auth-field">
-            <label className="auth-label">Confirm Password</label>
-            <input
-              type="password"
-              value={confirmPassword}
-              required
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="auth-input"
-              placeholder="••••••••"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading || googleLoading}
-            className="auth-button auth-button--secondary"
-          >
-            {loading ? 'Creating Account...' : 'Register'}
-          </button>
-        </form>
-
-        <div className="auth-footer-text">
-          <p>
-            Already have an account?{' '}
+          <div className="google-auth-section">
             <button
-              type="button"
-              onClick={() => navigate('/login')}
-              className="auth-link-button"
+              className="google-btn-saas"
+              onClick={handleGoogleSignup}
+              disabled={googleLoading || loading}
             >
-              Login here
+              <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" />
+              <span>Sign up with Google</span>
             </button>
-          </p>
+          </div>
+
+          <div className="auth-divider-saas">
+            <span>OR REGISTER WITH EMAIL</span>
+          </div>
+
+          {error && <div className="auth-error-saas">{error}</div>}
+
+          <form onSubmit={handleSubmit} className="auth-form-saas">
+            <div className="form-group">
+              <label>Full Name</label>
+              <input
+                type="text"
+                placeholder="Jane Doe"
+                value={name}
+                required
+                onChange={(e) => setName(e.target.value)}
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Work Email</label>
+              <input
+                type="email"
+                placeholder="name@company.com"
+                value={email}
+                required
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Password</label>
+              <input
+                type="password"
+                placeholder="Min. 8 characters"
+                value={password}
+                required
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Confirm Password</label>
+              <input
+                type="password"
+                placeholder="Re-enter password"
+                value={confirmPassword}
+                required
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+            </div>
+
+            <button type="submit" className="btn-auth-submit" disabled={loading}>
+              {loading ? 'Creating account...' : 'Create free account'}
+            </button>
+          </form>
+
+          <div className="auth-footer-saas">
+            Already have an account? <Link to="/login">Sign in</Link>
+          </div>
+        </div>
+
+        <div className="auth-legal">
+          By signing up, you agree to our <a href="#">Terms</a>, <a href="#">Privacy Policy</a> and <a href="#">Cookie Use</a>.
         </div>
       </div>
     </div>

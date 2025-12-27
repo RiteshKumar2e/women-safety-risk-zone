@@ -1,41 +1,202 @@
-.map-page {
+.map-dashboard {
+  height: calc(100vh - 64px);
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 64px);
+  background-color: var(--bg-body);
 }
 
-.map-page__header {
-  padding: 8px 0;
+/* Header */
+.map-header-saas {
+  padding: 1rem 1.5rem;
+  background-color: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-.map-page__header h1 {
-  margin: 0;
-  font-size: 1.7rem;
+.header-meta h1 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-bottom: 0.125rem;
 }
 
-.map-page__header p {
-  margin: 4px 0 0;
-  color: var(--color-text-muted);
-  font-size: 0.95rem;
+.header-meta p {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
 }
 
-.map-page__content {
-  display: grid;
-  grid-template-columns: 280px 1fr;
-  gap: 12px;
+.header-options {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.btn-secondary-sm,
+.btn-primary-sm {
+  padding: 0.4rem 0.875rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  border-radius: var(--radius-md);
+}
+
+.btn-secondary-sm {
+  background-color: var(--bg-hover);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+}
+
+.btn-primary-sm {
+  background-color: var(--brand-primary);
+  color: white;
+}
+
+/* Main Container */
+.map-main-container {
   flex: 1;
-}
-
-.map-page__controls {
-  background: var(--color-surface);
-  padding: 12px;
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-soft);
-}
-
-.map-page__map-container {
-  background: var(--color-surface);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-soft);
+  display: flex;
   overflow: hidden;
+}
+
+/* Sidebars */
+.map-sidebar-left,
+.map-sidebar-right {
+  width: 280px;
+  background-color: var(--bg-surface);
+  padding: 1.5rem;
+  overflow-y: auto;
+}
+
+.map-sidebar-left {
+  border-right: 1px solid var(--border-subtle);
+}
+
+.map-sidebar-right {
+  border-left: 1px solid var(--border-subtle);
+}
+
+.sidebar-group {
+  margin-bottom: 2rem;
+}
+
+.sidebar-group h4,
+.recent-reports h4,
+.insight-card h4 {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+}
+
+.layer-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.checkbox-saas {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.checkbox-saas input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--brand-primary);
+}
+
+/* Canvas */
+.map-canvas {
+  flex: 1;
+  position: relative;
+  background-color: #e5e7eb;
+  /* Fallback for map */
+}
+
+/* Right Sidebar Items */
+.insight-card {
+  background-color: var(--bg-hover);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.safety-index-score {
+  font-size: 2.5rem;
+  font-weight: 800;
+  margin: 0.5rem 0;
+}
+
+.safety-index-score.low {
+  color: var(--color-success);
+}
+
+.safety-index-score.medium {
+  color: var(--color-warning);
+}
+
+.safety-index-score.high {
+  color: var(--color-danger);
+}
+
+.index-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.report-item {
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.report-item:last-child {
+  border-bottom: none;
+}
+
+.type-badge {
+  font-size: 0.625rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 0.125rem 0.4rem;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+  display: inline-block;
+}
+
+.type-badge.alert {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+.type-badge.info {
+  background: #dcfce7;
+  color: #22c55e;
+}
+
+.report-item p {
+  font-size: 0.875rem;
+  line-height: 1.4;
+  margin-bottom: 0.25rem;
+}
+
+.report-item .time {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+@media (max-width: 1024px) {
+  .map-sidebar-right {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .map-sidebar-left {
+    display: none;
+  }
 }

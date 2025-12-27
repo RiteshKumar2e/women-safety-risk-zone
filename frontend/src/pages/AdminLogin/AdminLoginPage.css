@@ -1,0 +1,27 @@
+.admin-auth-bg {
+    background-color: #f1f5f9;
+    /* Slate 100 */
+}
+
+.admin-badge {
+    font-size: 0.65rem;
+    background-color: var(--light-text-primary);
+    color: white;
+    padding: 0.2rem 0.6rem;
+    border-radius: var(--radius-sm);
+    vertical-align: middle;
+    margin-left: 0.5rem;
+    letter-spacing: 0.1em;
+}
+
+.admin-border {
+    border-top: 4px solid var(--light-text-primary);
+}
+
+.admin-btn {
+    background-color: var(--light-text-primary);
+}
+
+.admin-btn:hover:not(:disabled) {
+    background-color: #334155;
+}

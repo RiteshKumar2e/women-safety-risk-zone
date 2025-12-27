@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
+import './Navbar.css';
 
 function Navbar() {
   const { user, logout } = useAuth();
@@ -11,110 +12,60 @@ function Navbar() {
     navigate('/login');
   };
 
+  const toggleTheme = () => {
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+  };
+
   return (
-    <header
-      style={{
-        height: '60px',
-        background: '#ffffff',
-        boxShadow: '0 1px 4px rgba(15,23,42,0.08)',
-        display: 'flex',
-        alignItems: 'center',
-        padding: '0 16px',
-        justifyContent: 'space-between',
-      }}
-    >
-      {/* Left */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <span style={{ fontWeight: 700, fontSize: '1.05rem' }}>
-          Women Safety
-        </span>
-      </div>
-
-      {/* Center links */}
-      <nav style={{ display: 'flex', gap: '16px' }}>
-        <NavLink
-          to="/map"
-          style={({ isActive }) => ({
-            fontSize: '0.95rem',
-            color: isActive ? '#2563eb' : '#6b7280',
-            fontWeight: isActive ? 600 : 400,
-          })}
-        >
-          Map
-        </NavLink>
-
-        <NavLink
-          to="/report"
-          style={({ isActive }) => ({
-            fontSize: '0.95rem',
-            color: isActive ? '#2563eb' : '#6b7280',
-            fontWeight: isActive ? 600 : 400,
-          })}
-        >
-          Report
-        </NavLink>
-
-        <NavLink
-          to="/routes"
-          style={({ isActive }) => ({
-            fontSize: '0.95rem',
-            color: isActive ? '#2563eb' : '#6b7280',
-            fontWeight: isActive ? 600 : 400,
-          })}
-        >
-          Safe Routes
-        </NavLink>
-
-        {user?.role === 'ADMIN' && (
-          <NavLink
-            to="/admin"
-            style={({ isActive }) => ({
-              fontSize: '0.95rem',
-              color: isActive ? '#2563eb' : '#6b7280',
-              fontWeight: isActive ? 600 : 400,
-            })}
-          >
-            Dashboard
+    <header className="app-navbar">
+      <div className="nav-container container">
+        <div className="nav-left">
+          <NavLink to="/" className="nav-brand">
+            <span className="brand-logo">🛡️</span>
+            <span className="brand-name">SafeZone AI</span>
           </NavLink>
-        )}
-      </nav>
+        </div>
 
-      {/* Right side */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-        {user ? (
-          <>
-            <span style={{ fontSize: '0.9rem', color: '#111827' }}>
-              {user.name || 'User'}
-            </span>
-            <button
-              onClick={handleLogout}
-              style={{
-                border: 'none',
-                padding: '6px 12px',
-                borderRadius: '6px',
-                background: '#2563eb',
-                color: 'white',
-                fontSize: '0.9rem',
-              }}
-            >
-              Logout
-            </button>
-          </>
-        ) : (
-          <button
-            onClick={() => navigate('/login')}
-            style={{
-              border: 'none',
-              padding: '6px 12px',
-              borderRadius: '6px',
-              background: '#2563eb',
-              color: 'white',
-              fontSize: '0.9rem',
-            }}
-          >
-            Login
+        <nav className="nav-center">
+          <NavLink to="/map" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+            Analysis Map
+          </NavLink>
+          <NavLink to="/report" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+            Report Incident
+          </NavLink>
+          <NavLink to="/routes" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+            Safety Routes
+          </NavLink>
+          {user?.role === 'ADMIN' && (
+            <NavLink to="/admin" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+              Control Center
+            </NavLink>
+          )}
+        </nav>
+
+        <div className="nav-right">
+          <button className="theme-toggle" onClick={toggleTheme} title="Toggle Theme">
+            🌓
           </button>
-        )}
+
+          {user ? (
+            <div className="nav-user-area">
+              <NavLink to="/profile" className="user-profile-link">
+                <span className="user-name">{user.name || 'Account'}</span>
+              </NavLink>
+              <button onClick={handleLogout} className="btn-logout">
+                Sign Out
+              </button>
+            </div>
+          ) : (
+            <button onClick={() => navigate('/login')} className="btn-login-small">
+              Sign In
+            </button>
+          )}
+        </div>
       </div>
     </header>
   );

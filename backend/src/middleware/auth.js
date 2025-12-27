@@ -1,30 +1,112 @@
-import { verifyToken } from '../utils/jwtUtils.js';
-import User from '../models/User.js';
+import jwt from 'jsonwebtoken';
+import { User } from '../models/index.js';
 
-export async function auth(req, res, next) {
-  const header = req.headers.authorization || '';
-  const token = header.startsWith('Bearer ') ? header.slice(7) : null;
-
-  if (!token) {
-    return res.status(401).json({ message: 'No token provided' });
-  }
-
+// Protect routes - verify JWT token
+export const protect = async (req, res, next) => {
   try {
-    const payload = verifyToken(token);
-    const user = await User.findById(payload.sub).lean();
-    if (!user) {
-      return res.status(401).json({ message: 'Invalid user' });
+    let token;
+
+    // Check for token in Authorization header
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+      token = req.headers.authorization.split(' ')[1];
     }
 
-    req.user = {
-      id: user._id,
-      role: user.role,
-      email: user.email,
-      name: user.name
-    };
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Not authorized. Please login.'
+      });
+    }
+
+    try {
+      // Verify token
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+      // Get user from token
+      const user = await User.findByPk(decoded.id, {
+        attributes: { exclude: ['password', 'otp', 'otpExpiry'] }
+      });
+
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      if (!user.isActive) {
+        return res.status(403).json({
+          success: false,
+          message: 'Account has been deactivated'
+        });
+      }
+
+      req.user = user;
+      next();
+    } catch (error) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid or expired token'
+      });
+    }
+  } catch (error) {
+    console.error('Auth middleware error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error in authentication'
+    });
+  }
+};
+
+// Authorize specific roles
+export const authorize = (...roles) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Not authorized'
+      });
+    }
+
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: `Role '${req.user.role}' is not authorized to access this resource`
+      });
+    }
 
     next();
-  } catch (err) {
-    return res.status(401).json({ message: 'Invalid or expired token' });
+  };
+};
+
+// Optional auth - attach user if token exists but don't require it
+export const optionalAuth = async (req, res, next) => {
+  try {
+    let token;
+
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+      token = req.headers.authorization.split(' ')[1];
+    }
+
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const user = await User.findByPk(decoded.id, {
+          attributes: { exclude: ['password', 'otp', 'otpExpiry'] }
+        });
+
+        if (user && user.isActive) {
+          req.user = user;
+        }
+      } catch (error) {
+        // Token invalid but continue without user
+      }
+    }
+
+    next();
+  } catch (error) {
+    next();
   }
-}
+};
+
+export default { protect, authorize, optionalAuth };
